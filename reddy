@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Zero-Trust Cloud Security Lab (Single File)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root {
+      --bg: #f5f5f7;
+      --card: #ffffff;
+      --text: #111111;
+      --muted: #666666;
+      --border: #e0e0e0;
+      --primary: #2563eb;
+      --primary-fg: #ffffff;
+      --success: #16a34a;
+      --danger: #dc2626;
+      --warn: #ca8a04;
+    }
+    body.dark {
+      --bg: #0f1115;
+      --card: #161920;
+      --text: #e5e7eb;
+      --muted: #9ca3af;
+      --border: #262a33;
+      --primary: #3b82f6;
+      --primary-fg: #0b1020;
+      --success: #22c55e;
+      --danger: #ef4444;
+      --warn: #fbbf24;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+      background: var(--card);
+      position: sticky;
+      top: 0;
+      z-index: 5;
+    }
+    header h1 {
+      font-size: 18px;
+      margin: 0;
+      font-weight: 700;
+    }
+    .header-actions {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+    button, select, input {
+      font: inherit;
+      color: inherit;
+    }
+    button {
+      background: var(--primary);
+      color: var(--primary-fg);
+      border: none;
+      padding: 8px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    button.secondary {
+      background: transparent;
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+    button.danger {
+      background: var(--danger);
+      color: white;
+    }
+    main {
+      max-width: 1100px;
+      margin: 16px auto;
+      padding: 0 16px;
+      display: grid;
+      gap: 16px;
+    }
+    .grid {
+      display: grid;
+      gap: 16px;
+    }
+    @media (min-width: 860px) {
+      .grid-2 {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px;
+    }
+    .card h2 {
+      margin: 0 0 10px 0;
+      font-size: 16px;
+    }
+    label {
+      display: block;
+      font-size: 13px;
+      color: var(--muted);
+      margin-bottom: 4px;
+    }
+    input[type="text"], input[type="password"], select {
+      width: 100%;
+      padding: 8px 10px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: var(--bg);
+      color: var(--text);
+      margin-bottom: 10px;
+    }
+    .row {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .muted { color: var(--muted); font-size: 13px; }
+    .tag {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 12px;
+      border: 1px solid var(--border);
+      margin-right: 6px;
+    }
+    .tag.success { background: rgba(34,197,94,0.15); color: var(--success); border-color: rgba(34,197,94,0.4); }
+    .tag.danger { background: rgba(239,68,68,0.15); color: var(--danger); border-color: rgba(239,68,68,0.4); }
+    .tag.warn { background: rgba(251,191,36,0.15); color: var(--warn); border-color: rgba(251,191,36,0.4); }
+    .log-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+    .log-table th, .log-table td {
+      text-align: left;
+      padding: 6px 4px;
+      border-bottom: 1px solid var(--border);
+    }
+    .hidden { display: none !important; }
+    .footer-note {
+      text-align: center;
+      font-size: 12px;
+      color: var(--muted);
+      margin: 8px 0 20px;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Zero‑Trust Cloud Security Lab</h1>
+    <div class="header-actions">
+      <button id="themeToggle" class="secondary">Toggle theme</button>
+      <div id="authArea" class="row">
+        <!-- Filled by JS -->
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <!-- LOGIN CARD -->
+    <section id="loginCard" class="card">
+      <h2>Login</h2>
+      <div class="muted" style="margin-bottom:8px;">
+        Demo users: alice / password1, bob / password2, charlie / password3
+      </div>
+      <label>Username</label>
+      <input id="loginUser" type="text" placeholder="e.g. alice" />
+      <label>Password</label>
+      <input id="loginPass" type="password" placeholder="••••••••" />
+      <div class="row">
+        <button id="loginBtn">Login</button>
+        <div id="loginError" class="tag danger hidden">Invalid credentials</div>
+      </div>
+    </section>
+
+    <!-- DASHBOARD (shown after login) -->
+    <section id="dashboardCard" class="card hidden">
+      <h2>Dashboard</h2>
+      <div class="muted" style="margin-bottom:8px;">
+        Logged in as: <strong id="displayName"></strong>
+        <span id="displayRoles" class="muted"></span>
+      </div>
+
+      <div class="grid grid-2">
+        <!-- Access Request -->
+        <div class="card" style="border:none; padding:0;">
+          <h2>Request Access</h2>
+          <label>Service</label>
+          <select id="serviceSelect">
+            <option value="svc_api">api-gateway (web zone)</option>
+            <option value="svc_app">app-server (app zone)</option>
+            <option value="svc_db">database (data zone)</option>
+          </select>
+          <div class="row">
+            <button id="requestAccessBtn">Evaluate Access</button>
+            <div id="accessResult" class="tag hidden"></div>
+          </div>
+          <div id="accessDetails" class="muted" style="margin-top:8px;"></div>
+        </div>
+
+        <!-- Change Password -->
+        <div class="card" style="border:none; padding:0;">
+          <h2>Change Password</h2>
+          <label>Current password</label>
+          <input id="curPass" type="password" />
+          <label>New password</label>
+          <input id="newPass" type="password" />
+          <label>Confirm new password</label>
+          <input id="confPass" type="password" />
+          <div class="row">
+            <button id="changePassBtn">Update password</button>
+            <div id="passMsg" class="tag hidden"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card" style="border:none; padding:0; margin-top:16px;">
+        <h2>Access Log (Security Lake)</h2>
+        <div class="row" style="margin-bottom:8px;">
+          <button id="refreshLogBtn" class="secondary">Refresh log</button>
+          <button id="clearLogBtn" class="danger">Clear log</button>
+          <div class="muted">Local simulation only; stored in browser memory.</div>
+        </div>
+        <table class="log-table">
+          <thead>
+            <tr>
+              <th>Time</th>
+              <th>User</th>
+              <th>Service</th>
+              <th>Policy</th>
+              <th>Network</th>
+              <th>Result</th>
+            </tr>
+          </thead>
+          <tbody id="logBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <div class="footer-note">
+      This is a local, educational zero‑trust lab simulator. Extend it with real cloud APIs or Terraform for production use.
+    </div>
+  </main>
+
+  <script>
+    // ---------------------------
+    // Data & State (in-memory)
+    // ---------------------------
+    const usersDB = [
+      { id: "u1", name: "alice", password: "password1", roles: ["developer"], mfa_enabled: true, device_id: "d1" },
+      { id: "u2", name: "bob",   password: "password2", roles: ["admin"],     mfa_enabled: true, device_id: "d2" },
+      { id: "u3", name: "charlie",password: "password3", roles: ["intern"],    mfa_enabled: false, device_id: "d3" }
+    ];
+    const devicesDB = [
+      { id: "d1", compliant: true,  os: "windows", risk_score: 0.1 },
+      { id: "d2", compliant: true,  os: "linux",   risk_score: 0.05 },
+      { id: "d3", compliant: false, os: "windows", risk_score: 0.7 }
+    ];
+    const servicesDB = [
+      { id: "svc_api", name: "api-gateway", zone: "web" },
+      { id: "svc_app", name: "app-server",  zone: "app" },
+      { id: "svc_db",  name: "database",    zone: "data" }
+    ];
+    const policies = {
+      access_policies: [
+        {
+          name: "allow_developer_to_api",
+          principal_roles: ["developer"],
+          service: "svc_api",
+          conditions: {
+            require_mfa: true,
+            require_compliant_device: true,
+            max_device_risk_score: 0.3
+          },
+          action: "allow"
+        },
+        {
+          name: "allow_admin_to_all",
+          principal_roles: ["admin"],
+          service: "*",
+          conditions: {
+            require_mfa: true,
+            require_compliant_device: true,
+            max_device_risk_score: 0.4
+          },
+          action: "allow"
+        },
+        {
+          name: "deny_intern_to_db",
+          principal_roles: ["intern"],
+          service: "svc_db",
+          conditions: {},
+          action: "deny"
+        }
+      ],
+      default_action: "deny"
+    };
+    const networkRules = {
+      micro_segmentation: [
+        { name: "web_to_app", source_zone: "web", destination_zone: "app", action: "allow" },
+        { name: "app_to_db",  source_zone: "app", destination_zone: "data", action: "allow" },
+        { name: "deny_direct_web_to_db", source_zone: "web", destination_zone: "data", action: "deny" }
+      ],
+      default_action: "deny"
+    };
+
+    let currentUser = null; // {userObj, deviceObj}
+    let accessLog = [];
+
+    // ---------------------------
+    // Helpers
+    // ---------------------------
+    function getUserByName(name) {
+      return usersDB.find(u => u.name === name);
+    }
+    function getDevice(device_id) {
+      return devicesDB.find(d => d.id === device_id);
+    }
+    function getService(service_id) {
+      return servicesDB.find(s => s.id === service_id);
+    }
+    function evaluatePolicy(user, service_id) {
+      const userRoles = new Set(user.roles);
+      const device = getDevice(user.device_id);
+
+      for (const p of policies.access_policies) {
+        if (p.service !== "*" && p.service !== service_id) continue;
+        const roleMatch = p.principal_roles.some(r => userRoles.has(r));
+        if (!roleMatch) continue;
+
+        const conds = p.conditions || {};
+        if (conds.require_mfa && !user.mfa_enabled) continue;
+        if (conds.require_compliant_device && !device.compliant) continue;
+        if (conds.max_device_risk_score != null && device.risk_score > conds.max_device_risk_score) continue;
+
+        return { action: p.action, name: p.name };
+      }
+      return { action: policies.default_action, name: "default" };
+    }
+    function checkMicroSegmentation(source_zone, dest_zone) {
+      for (const r of networkRules.micro_segmentation) {
+        if (r.source_zone === source_zone && r.destination_zone === dest_zone) {
+          return { action: r.action, name: r.name };
+        }
+      }
+      return { action: networkRules.default_action, name: "default" };
+    }
+    function evaluateAccess(user, service_id) {
+      const service = getService(service_id);
+      if (!service) return { allowed: false, reason: "invalid service" };
+
+      const policyRes = evaluatePolicy(user, service_id);
+      const source_zone = "web"; // demo assumption
+      const dest_zone = service.zone;
+      const netRes = checkMicroSegmentation(source_zone, dest_zone);
+
+      const allowed = (policyRes.action === "allow") && (netRes.action === "allow");
+
+      const entry = {
+        time: new Date().toLocaleString(),
+        user: user.name,
+        service: service.name,
+        policy: `${policyRes.name} (${policyRes.action})`,
+        network: `${netRes.name} (${netRes.action})`,
+        result: allowed ? "ALLOW" : "DENY"
+      };
+      accessLog.unshift(entry);
+      if (accessLog.length > 200) accessLog.pop();
+
+      return {
+        allowed,
+        details: {
+          user: user.name,
+          device_compliant: getDevice(user.device_id).compliant,
+          service: service.name,
+          policy_name: policyRes.name,
+          policy_action: policyRes.action,
+          network_rule: netRes.name,
+          network_action: netRes.action
+        }
+      };
+    }
+
+    // ---------------------------
+    // UI Logic
+    // ---------------------------
+    const themeToggle = document.getElementById("themeToggle");
+    const authArea = document.getElementById("authArea");
+    const loginCard = document.getElementById("loginCard");
+    const dashboardCard = document.getElementById("dashboardCard");
+
+    const loginUser = document.getElementById("loginUser");
+    const loginPass = document.getElementById("loginPass");
+    const loginBtn = document.getElementById("loginBtn");
+    const loginError = document.getElementById("loginError");
+
+    const displayName = document.getElementById("displayName");
+    const displayRoles = document.getElementById("displayRoles");
+
+    const serviceSelect = document.getElementById("serviceSelect");
+    const requestAccessBtn = document.getElementById("requestAccessBtn");
+    const accessResult = document.getElementById("accessResult");
+    const accessDetails = document.getElementById("accessDetails");
+
+    const curPass = document.getElementById("curPass");
+    const newPass = document.getElementById("newPass");
+    const confPass = document.getElementById("confPass");
+    const changePassBtn = document.getElementById("changePassBtn");
+    const passMsg = document.getElementById("passMsg");
+
+    const refreshLogBtn = document.getElementById("refreshLogBtn");
+    const clearLogBtn = document.getElementById("clearLogBtn");
+    const logBody = document.getElementById("logBody");
+
+    // Theme
+    const THEME_KEY = "zt_theme_dark";
+    function applyTheme() {
+      const dark = localStorage.getItem(THEME_KEY) === "1";
+      document.body.classList.toggle("dark", dark);
+      themeToggle.textContent = dark ? "Light theme" : "Dark theme";
+    }
+    themeToggle.addEventListener("click", () => {
+      const nowDark = !document.body.classList.contains("dark");
+      localStorage.setItem(THEME_KEY, nowDark ? "1" : "0");
+      applyTheme();
+    });
+    applyTheme();
+
+    // Auth UI
+    function renderAuth() {
+      authArea.innerHTML = "";
+      if (!currentUser) {
+        loginCard.classList.remove("hidden");
+        dashboardCard.classList.add("hidden");
+      } else {
+        loginCard.classList.add("hidden");
+        dashboardCard.classList.remove("hidden");
+
+        const nameSpan = document.createElement("span");
+        nameSpan.textContent = `Hi, ${currentUser.user.name}`;
+        authArea.appendChild(nameSpan);
+
+        const logoutBtn = document.createElement("button");
+        logoutBtn.className = "secondary";
+        logoutBtn.textContent = "Logout";
+        logoutBtn.addEventListener("click", () => {
+          currentUser = null;
+          renderAuth();
+        });
+        authArea.appendChild(logoutBtn);
+      }
+    }
+    renderAuth();
+
+    // Login
+    loginBtn.addEventListener("click", () => {
+      loginError.classList.add("hidden");
+      const name = loginUser.value.trim();
+      const pass = loginPass.value;
+      const user = getUserByName(name);
+      if (!user || user.password !== pass) {
+        loginError.classList.remove("hidden");
+        return;
+      }
+      currentUser = { user, device: getDevice(user.device_id) };
+      displayName.textContent = user.name.toUpperCase();
+      displayRoles.textContent = " • " + user.roles.join(", ");
+      loginUser.value = "";
+      loginPass.value = "";
+      renderAuth();
+      renderLog();
+    });
+
+    // Access request
+    requestAccessBtn.addEventListener("click", () => {
+      if (!currentUser) return;
+      const service_id = serviceSelect.value;
+      const res = evaluateAccess(currentUser.user, service_id);
+      accessResult.classList.remove("hidden", "success", "danger", "warn");
+      if (res.allowed) {
+        accessResult.textContent = "ACCESS GRANTED";
+        accessResult.classList.add("success");
+      } else {
+        accessResult.textContent = "ACCESS DENIED";
+        accessResult.classList.add("danger");
+      }
+      const d = res.details;
+      accessDetails.innerHTML =
+        `User: ${d.user} | Device compliant: ${d.device_compliant} | Service: ${d.service}<br/>` +
+        `Policy: ${d.policy_name} (${d.policy_action}) | Network: ${d.network_rule} (${d.network_action})`;
+      renderLog();
+    });
+
+    // Change password
+    changePassBtn.addEventListener("click", () => {
+      if (!currentUser) return;
+      passMsg.classList.add("hidden", "success", "danger");
+      const cur = curPass.value;
+      const np = newPass.value;
+      const cp = confPass.value;
+
+      if (cur !== currentUser.user.password) {
+        passMsg.textContent = "Current password incorrect";
+        passMsg.classList.remove("hidden");
+        passMsg.classList.add("danger");
+        return;
+      }
+      if (!np || np.length < 4) {
+        passMsg.textContent = "New password too short";
+        passMsg.classList.remove("hidden");
+        passMsg.classList.add("danger");
+        return;
+      }
+      if (np !== cp) {
+        passMsg.textContent = "New passwords do not match";
+        passMsg.classList.remove("hidden");
+        passMsg.classList.add("danger");
+        return;
+      }
+      currentUser.user.password = np;
+      passMsg.textContent = "Password updated";
+      passMsg.classList.remove("hidden");
+      passMsg.classList.add("success");
+      curPass.value = "";
+      newPass.value = "";
+      confPass.value = "";
+    });
+
+    // Log rendering
+    function renderLog() {
+      logBody.innerHTML = "";
+      for (const e of accessLog) {
+        const tr = document.createElement("tr");
+        const resultTag = e.result === "ALLOW"
+          ? `<span class="tag success">ALLOW</span>`
+          : `<span class="tag danger">DENY</span>`;
+        tr.innerHTML = `
+          <td>${e.time}</td>
+          <td>${e.user}</td>
+          <td>${e.service}</td>
+          <td>${e.policy}</td>
+          <td>${e.network}</td>
+          <td>${resultTag}</td>
+        `;
+        logBody.appendChild(tr);
+      }
+    }
+    refreshLogBtn.addEventListener("click", renderLog);
+    clearLogBtn.addEventListener("click", () => {
+      accessLog = [];
+      renderLog();
+    });
+
+    // Initial dummy log for demo
+    (function seedDemoLog() {
+      const demoScenarios = [
+        ["alice", "svc_api"],
+        ["alice", "svc_db"],
+        ["bob", "svc_db"],
+        ["charlie", "svc_api"],
+        ["charlie", "svc_db"]
+      ];
+      for (const [uname, sid] of demoScenarios) {
+        const u = getUserByName(uname);
+        evaluateAccess(u, sid);
+      }
+      renderLog();
+    })();
+  </script>
+</body>
+</html>
